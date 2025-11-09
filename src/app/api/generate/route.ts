@@ -47,20 +47,22 @@ export async function POST(request: NextRequest) {
       n: 1,
       size: '1024x1024',
       quality: 'standard',
+      response_format: 'b64_json', // Get base64 instead of URL
     });
 
-    const imageUrl = imageResponse.data?.[0]?.url;
+    const b64Image = imageResponse.data?.[0]?.b64_json;
 
-    if (!imageUrl) {
+    if (!b64Image) {
       throw new Error('Failed to generate image');
     }
 
     console.log('Image generated successfully');
+    console.log('Image data length:', b64Image.length);
 
-    // Return the generated image URL and the prompt used
+    // Return the generated image as base64 data
     return NextResponse.json({
       success: true,
-      imageUrl,
+      imageData: b64Image, // base64 image data
       enhancedPrompt: dallePrompt,
       originalDescription: description,
     });

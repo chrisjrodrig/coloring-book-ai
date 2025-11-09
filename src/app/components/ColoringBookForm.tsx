@@ -5,7 +5,7 @@ import Image from 'next/image';
 
 interface GenerationResponse {
   success: boolean;
-  imageUrl: string;
+  imageData: string; // base64 image data
   enhancedPrompt: string;
   originalDescription: string;
   error?: string;
@@ -173,11 +173,12 @@ export default function ColoringBookForm() {
             {/* Image */}
             <div className="relative aspect-square bg-gray-100 dark:bg-gray-900">
               <Image
-                src={result.imageUrl}
+                src={`data:image/png;base64,${result.imageData}`}
                 alt={result.originalDescription}
                 fill
                 className="object-contain"
                 priority
+                unoptimized
               />
             </div>
 
@@ -203,10 +204,8 @@ export default function ColoringBookForm() {
 
               {/* Download Button */}
               <a
-                href={result.imageUrl}
+                href={`data:image/png;base64,${result.imageData}`}
                 download="coloring-page.png"
-                target="_blank"
-                rel="noopener noreferrer"
                 className="inline-block w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium text-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
               >
                 Download Coloring Page
