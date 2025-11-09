@@ -33,42 +33,49 @@ export async function POST(request: NextRequest) {
           role: 'system',
           content: `You are a helpful assistant that converts user descriptions into optimized prompts for generating coloring book pages.
 
-          Coloring book pages should be:
-          - Black and white line art only
-          - Simple, clean outlines
-          - No shading or gradients
-          - Clear, bold lines
-          - Appropriate white space for coloring
-          - Child-friendly and fun
+          Create a concise, clear prompt (max 100 words) that describes:
+          - The main subject from the user's description
+          - Black and white line art style
+          - Simple, clean outlines suitable for coloring
+          - No shading, gradients, or color fill
 
-          Take the user's description and create a detailed DALL-E prompt that will generate a perfect coloring book page.`,
+          Return ONLY the prompt text, no quotes or extra formatting.`,
         },
         {
           role: 'user',
-          content: `Create a DALL-E prompt for a coloring book page based on this description: "${description}"`,
+          content: `Create a DALL-E prompt for a coloring book page: ${description}`,
         },
       ],
       temperature: 0.7,
-      max_tokens: 200,
+      max_tokens: 150,
     });
 
-    const enhancedPrompt = chatCompletion.choices[0]?.message?.content;
+    const enhancedPrompt = chatCompletion.choices[0]?.message?.content?.trim();
 
     if (!enhancedPrompt) {
       throw new Error('Failed to generate enhanced prompt');
     }
 
-    console.log('Enhanced prompt:', enhancedPrompt);
+    // Clean the prompt: remove quotes and ensure it's within limits
+    const cleanPrompt = enhancedPrompt
+      .replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+
+    // Ensure the final prompt isn't too long (DALL-E 3 has a 4000 char limit)
+    const finalPrompt = cleanPrompt.slice(0, 1000);
+
+    console.log('Enhanced prompt:', finalPrompt);
+    console.log('Prompt length:', finalPrompt.length);
 
     // Step 2: Use DALL-E to generate the coloring book image
     console.log('Generating image with DALL-E...');
     const imageResponse = await openai.images.generate({
       model: 'dall-e-3',
-      prompt: `${enhancedPrompt}. IMPORTANT: Create this as a black and white line drawing suitable for a coloring book, with clear outlines and no shading or color fill.`,
+      prompt: finalPrompt,
       n: 1,
       size: '1024x1024',
       quality: 'standard',
-      style: 'natural',
     });
 
     const imageUrl = imageResponse.data?.[0]?.url;
@@ -83,11 +90,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       imageUrl,
-      enhancedPrompt,
+      enhancedPrompt: finalPrompt,
       originalDescription: description,
     });
   } catch (error: any) {
     console.error('Error generating coloring book page:', error);
+    console.error('Error details:', {
+      message: error?.message,
+      status: error?.status,
+      code: error?.code,
+      type: error?.type,
+    });
 
     // Handle specific OpenAI errors
     if (error?.status === 401) {
@@ -104,6 +117,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (error?.status === 400) {
+      return NextResponse.json(
+        { error: `Invalid request: ${error?.message || 'Bad request to OpenAI API'}` },
+        { status: 400 }
+      );
+    }
+
+    // Return more detailed error for debugging
     return NextResponse.json(
       { error: error?.message || 'Failed to generate coloring book page' },
       { status: 500 }
