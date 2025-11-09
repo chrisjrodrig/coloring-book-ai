@@ -24,55 +24,26 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    // Step 1: Use ChatGPT to enhance the prompt for coloring book generation
-    console.log('Enhancing prompt with ChatGPT...');
-    const chatCompletion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a helpful assistant that converts user descriptions into optimized prompts for generating coloring book pages.
-
-          Create a concise, clear prompt (max 100 words) that describes:
-          - The main subject from the user's description
-          - Black and white line art style
-          - Simple, clean outlines suitable for coloring
-          - No shading, gradients, or color fill
-
-          Return ONLY the prompt text, no quotes or extra formatting.`,
-        },
-        {
-          role: 'user',
-          content: `Create a DALL-E prompt for a coloring book page: ${description}`,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 150,
-    });
-
-    const enhancedPrompt = chatCompletion.choices[0]?.message?.content?.trim();
-
-    if (!enhancedPrompt) {
-      throw new Error('Failed to generate enhanced prompt');
-    }
-
-    // Clean the prompt: remove quotes and ensure it's within limits
-    const cleanPrompt = enhancedPrompt
-      .replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
+    // Clean and sanitize user input
+    const sanitizedDescription = description
+      .replace(/[^\w\s,.-]/g, '') // Remove special characters except basic punctuation
       .replace(/\s+/g, ' ') // Normalize whitespace
-      .trim();
+      .trim()
+      .slice(0, 200); // Limit description length
 
-    // Ensure the final prompt isn't too long (DALL-E 3 has a 4000 char limit)
-    const finalPrompt = cleanPrompt.slice(0, 1000);
+    console.log('Sanitized description:', sanitizedDescription);
 
-    console.log('Enhanced prompt:', finalPrompt);
-    console.log('Prompt length:', finalPrompt.length);
+    // Create a simple, direct prompt using a template we control
+    const dallePrompt = `A simple black and white line drawing coloring book page of ${sanitizedDescription}. The image should be in a coloring book style with clear black outlines, no shading, no colors, and plenty of white space for coloring.`;
 
-    // Step 2: Use DALL-E to generate the coloring book image
+    console.log('DALL-E prompt:', dallePrompt);
+    console.log('Prompt length:', dallePrompt.length);
+
+    // Generate the coloring book image with DALL-E
     console.log('Generating image with DALL-E...');
     const imageResponse = await openai.images.generate({
       model: 'dall-e-3',
-      prompt: finalPrompt,
+      prompt: dallePrompt,
       n: 1,
       size: '1024x1024',
       quality: 'standard',
@@ -86,47 +57,53 @@ export async function POST(request: NextRequest) {
 
     console.log('Image generated successfully');
 
-    // Return the generated image URL and enhanced prompt
+    // Return the generated image URL and the prompt used
     return NextResponse.json({
       success: true,
       imageUrl,
-      enhancedPrompt: finalPrompt,
+      enhancedPrompt: dallePrompt,
       originalDescription: description,
     });
   } catch (error: any) {
     console.error('Error generating coloring book page:', error);
-    console.error('Error details:', {
-      message: error?.message,
-      status: error?.status,
-      code: error?.code,
-      type: error?.type,
-    });
+    console.error('Full error object:', JSON.stringify(error, null, 2));
+
+    // Log additional error details
+    if (error.response) {
+      console.error('Error response:', {
+        status: error.response.status,
+        data: error.response.data,
+      });
+    }
 
     // Handle specific OpenAI errors
-    if (error?.status === 401) {
+    if (error?.status === 401 || error?.response?.status === 401) {
       return NextResponse.json(
         { error: 'Invalid OpenAI API key' },
         { status: 401 }
       );
     }
 
-    if (error?.status === 429) {
+    if (error?.status === 429 || error?.response?.status === 429) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again later.' },
         { status: 429 }
       );
     }
 
-    if (error?.status === 400) {
+    if (error?.status === 400 || error?.response?.status === 400) {
+      const errorMessage = error?.error?.message || error?.message || 'Bad request to OpenAI API';
+      console.error('400 Error message:', errorMessage);
       return NextResponse.json(
-        { error: `Invalid request: ${error?.message || 'Bad request to OpenAI API'}` },
+        { error: `Invalid request: ${errorMessage}` },
         { status: 400 }
       );
     }
 
     // Return more detailed error for debugging
+    const errorMessage = error?.error?.message || error?.message || 'Failed to generate coloring book page';
     return NextResponse.json(
-      { error: error?.message || 'Failed to generate coloring book page' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
