@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 export async function POST(request: NextRequest) {
+  console.log('=== API Route Called ===');
+  console.log('Timestamp:', new Date().toISOString());
+
   try {
-    const { description } = await request.json();
+    const body = await request.json();
+    console.log('Request body:', body);
+
+    const { description } = body;
 
     if (!description || typeof description !== 'string') {
+      console.log('ERROR: Invalid description', { description, type: typeof description });
       return NextResponse.json(
         { error: 'Description is required and must be a string' },
         { status: 400 }
@@ -13,16 +20,21 @@ export async function POST(request: NextRequest) {
     }
 
     if (!process.env.OPENAI_API_KEY) {
+      console.log('ERROR: OpenAI API key not found in environment variables');
       return NextResponse.json(
         { error: 'OpenAI API key is not configured' },
         { status: 500 }
       );
     }
 
+    console.log('OpenAI API key found:', process.env.OPENAI_API_KEY.substring(0, 10) + '...');
+
     // Initialize OpenAI client
+    console.log('Initializing OpenAI client...');
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
+    console.log('OpenAI client initialized successfully');
 
     // Clean and sanitize user input
     const sanitizedDescription = description
