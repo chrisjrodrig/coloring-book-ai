@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize OpenAI client
-    const openai = new OpenAI({
+    const client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
 
@@ -41,12 +41,11 @@ export async function POST(request: NextRequest) {
 
     // Generate the coloring book image with DALL-E
     console.log('Generating image with DALL-E...');
-    const imageResponse = await openai.images.generate({
+    const imageResponse = await client.images.generate({
       model: 'dall-e-3',
       prompt: dallePrompt,
       n: 1,
       size: '1024x1024',
-      quality: 'standard',
     });
 
     const imageUrl = imageResponse.data?.[0]?.url;
