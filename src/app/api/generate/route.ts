@@ -30,8 +30,7 @@ export async function POST(request: NextRequest) {
     console.log('OpenAI API key found:', process.env.OPENAI_API_KEY.substring(0, 10) + '...');
 
     // Initialize OpenAI client
-    console.log('Initializing OpenAI client...');
-    const openai = new OpenAI({
+    const client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
     console.log('OpenAI client initialized successfully');
@@ -53,13 +52,11 @@ export async function POST(request: NextRequest) {
 
     // Generate the coloring book image with DALL-E
     console.log('Generating image with DALL-E...');
-    const imageResponse = await openai.images.generate({
+    const imageResponse = await client.images.generate({
       model: 'dall-e-3',
       prompt: dallePrompt,
       n: 1,
       size: '1024x1024',
-      quality: 'standard',
-      response_format: 'b64_json', // Get base64 instead of URL
     });
 
     const b64Image = imageResponse.data?.[0]?.b64_json;
